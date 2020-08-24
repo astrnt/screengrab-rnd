@@ -1,9 +1,9 @@
 // check whether getDisplayMedia API is available
 const canIRun = navigator.mediaDevices.getDisplayMedia;
-
 // record video track
 const elapsed = document.getElementById('elapsed');
 const previews = document.getElementById('previews');
+const secInt = 3; // use 3 seconds as the screen grab inteval
 let recorder, stream, s = 0, timer, capturedBitmaps = [], focused = true;
 
 /**
@@ -28,11 +28,11 @@ const startRecording = async () => {
     recorder = new MediaRecorder(stream);
 
     const display = stream.getVideoTracks()[0].getSettings().displaySurface;
-    if (display === 'browser') {
+    if (display !== 'monitor') { // ['monitor', 'window', 'browser']
       // stop the stream, prevent mem leak
       stream.getVideoTracks()[0].stop();
       
-      alert('Please choose entire screen or application window for sharing');
+      alert('Please choose entire screen (monitor) for sharing to start the session');
       return;
     } else {
       // prepare stream chunks
@@ -53,14 +53,14 @@ const startRecording = async () => {
 }
 
 /** 
- * grab image on 3 seconds interval
+ * grab image on x seconds interval
  */
 const timerIntv = () => setInterval(() => {
   s++;
   elapsed.innerHTML = s;
 
   // grab bitmap every three seconds
-  if (s % 3 === 0) grabImageFromStream();
+  if (s % secInt === 0) grabImageFromStream();
 }, 1000);
 
 /**
@@ -88,7 +88,7 @@ const grabImageFromStream = async () => {
   // take the current frame
   const bitmap = await imageCapture.grabFrame();
   const d = new Date();
-  const t = d.getHours() + ':' + d.getMinutes() + ':' + d.getSeconds() + ' ' + d.getDate() + '-' + (d.getMonth() + 1) + '-' + d.getFullYear();
+  const t = d.toISOString().slice(0, 19).replace('T', ' ');
 
   capturedBitmaps.push({'bitmap': bitmap, 'focused': focused, 'timeOfGrab': t});
 }
