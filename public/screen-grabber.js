@@ -122,7 +122,31 @@ const showCaptures = (bitmap, focused, timeOfGrab) => {
   canvasContainer.setAttribute('style', focused ? 'background: #8BC34A' : 'background: #F44336');
 
   previews.appendChild(canvasContainer);
+
+  // upload the blob
+  canvas.toBlob(uploadBlob(timeOfGrab));
 }
+
+// upload the blob image to dummy server
+const uploadBlob = timeOfGrab => blob => {
+  let xhr = new XMLHttpRequest(), fd = new FormData();
+
+  // create form data
+  fd.append('screengrab', blob);
+  fd.append('screengrabstamp', timeOfGrab);
+
+  // send ajax to backend
+  xhr.open('POST', 'http://localhost:3210/api/v1/upload', true);
+  xhr.send(fd);
+  xhr.onload = () => {
+    // handle error
+    if (xhr.status != 200) return;
+
+    // todo
+    // get the response from xhr.response
+  };
+};
+
 
 /**
  * start button action
