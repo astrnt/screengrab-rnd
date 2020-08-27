@@ -4,7 +4,19 @@
 const bodyParser = require('body-parser');
 const express = require('express');
 const multer = require('multer');
-const upload = multer({dest: 'uploads/'});
+
+// setup multer
+var storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    const extName = file.mimetype === 'application/octet-stream' ? '.audio' : '.png';
+    cb(null, `${file.fieldname}-${Date.now()}${extName}`);
+  }
+});
+const upload = multer({storage: storage});
+
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const fs = require('fs');
 
@@ -29,9 +41,6 @@ app.post('/api/v1/upload', upload.single('screengrab'), (req, res, next) => {
     return next(error);
   } else {
     res.json({message: 'file received'});
-    // todo remove
-    console.log(req.file);
-    console.log(req.body.screengrabstamp);
   }
 });
 
