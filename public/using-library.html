@@ -1,0 +1,106 @@
+<html>
+  <head>
+    <title>Screen grabber example using Proctor library</title>
+    <link href="https://fonts.googleapis.com/css?family=Rubik&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Rubik', Arial, Helvetica, sans-serif;
+      }
+
+      button {
+        margin-top: 10px;
+        width: 180px;
+        height: 45px
+      }
+
+      span {
+        font-size: .8em;
+        padding-left: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <div>
+        <button id="start">Start session</button>
+        <span>session started information</span>
+      </div>
+      <div>
+        <button id="q1">Question 1</button>
+        <span>question 1 information</span>
+      </div>
+      <div>
+        <button id="q2">Question 2</button>
+        <span>question 2 information</span>
+      </div>
+      <div>
+        <button id="q3">Question 3</button>
+        <span>question 3 information</span>
+      </div>
+      <div>
+        <button id="stop">Stop session</button>
+        <span>session stopped information</span>
+      </div>
+    </div>
+  </body>
+
+  <script src="proctor.js"></script>
+  <script>
+
+    /**
+     * 
+     * this a simulation of a JS app using Astronaut's Proctoring SDK
+     * 
+     * */
+
+    // initialize the Proctoring SDK
+    const proctor = new Proctor();
+
+    /** 
+     * grab image 
+     */
+    const grabImage = questionId => {
+      proctor.grabImageFromStream(questionId);
+    };
+
+    /**
+     * start button action
+     */
+    const startBtn = document.getElementById('start').onclick = e => {
+      e.stopImmediatePropagation();
+
+      // check whether getDisplayMedia API is available
+      const isDisplayMediaSupported = navigator.mediaDevices.getDisplayMedia;
+      if (isDisplayMediaSupported) proctor.start();
+      else alert(`Your browser doesn't support proctoring feature`);
+    }
+
+    /**
+     * stop button action
+     */
+    const stopBtn = document.getElementById('stop').onclick = e => {
+      e.stopImmediatePropagation();
+      proctor.stop();
+    }
+
+    /** 
+     * actions for question buttons
+     * this is to simulate when a candidate is starting to answer a question 
+     */
+    const q1Btn = document.getElementById('q1').onclick = e => {
+      e.stopImmediatePropagation();
+      grabImage(1);
+    }
+
+    const q2Btn = document.getElementById('q2').onclick = e => {
+      e.stopImmediatePropagation();
+      grabImage(2);
+    }
+
+    const q3Btn = document.getElementById('q3').onclick = e => {
+      e.stopImmediatePropagation();
+      grabImage(3);
+    }
+
+  </script>
+</html>
