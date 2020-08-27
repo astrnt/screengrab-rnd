@@ -56,13 +56,6 @@
     // initialize the Proctoring SDK
     const proctor = new Proctor();
 
-    /** 
-     * grab screen image 
-     */
-    const grabImage = questionId => {
-      proctor.capture(questionId);
-    };
-
     /**
      * start button action
      */
@@ -89,17 +82,17 @@
      */
     document.getElementById('q1').onclick = e => {
       e.stopImmediatePropagation();
-      grabImage(1);
+      proctor.capture(1);
     }
 
     document.getElementById('q2').onclick = e => {
       e.stopImmediatePropagation();
-      grabImage(2);
+      proctor.capture(2);
     }
 
     document.getElementById('q3').onclick = e => {
       e.stopImmediatePropagation();
-      grabImage(3);
+      proctor.capture(3);
     }
 
   </script>

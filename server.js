@@ -29,6 +29,7 @@ app.post('/api/v1/upload', upload.single('screengrab'), (req, res, next) => {
     return next(error);
   } else {
     res.json({message: 'file received'});
+    // todo remove
     console.log(req.file);
     console.log(req.body.screengrabstamp);
   }
@@ -51,6 +52,7 @@ app.post('/api/v1/uploadlog', (req, res) => {
   .then(() => res.json({message: 'log received'}));
 });
 
+// server started info
 app.listen(port, () => {
   console.log(`server running at port ${port}`);
 });

@@ -29,25 +29,27 @@ function Proctor (grabScale) {
    * set the bitmap scale down value
    * eg. if the screenshot is 1000 by 800 pixels, the saved bitmap will be resized to 1000/this.grabScale by 800/this.grabScale pixels
    */
-  this.grabScale = grabScale || 5;
+  this.grabScale = grabScale || 1;
 
   /**
-   * grab a particulra bitmap from the ongoing stream
+   * grab a particular bitmap from the ongoing stream
    */
-  this.capture = async qid => {
-    //todo remoge
-    console.log('grabbing ', qid);
-
+  this.capture = async (qid, random = true, maxLimit = 5000) => {
     // get track
     const track = stream.getVideoTracks() && stream.getVideoTracks()[0];
 
     // init Image Capture and not Video stream
     const imageCapture = new ImageCapture(track);
 
+    // if randomize the screen capture time is true, wait for a number (< maxLimit) of seconds (aka sleep)
+    if (random) await new Promise(r => setTimeout(r, (Math.random() * maxLimit) ));
+
     // take the current frame
     const bitmap = await imageCapture.grabFrame();
     const d = new Date();
     const tog = d.toISOString().slice(0, 19).replace('T', ' ');
+    // todo remove
+    console.log(qid, 'grabbed');
 
     // save it to a temporary array
     capturedScreenBitmaps.push({'qid': qid, 'bitmap': bitmap, 'focused': this.focused, 'timeOfGrab': tog});
