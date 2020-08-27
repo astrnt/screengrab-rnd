@@ -10,7 +10,7 @@ function Proctor (grabScale) {
   let focusLog = [],
       recorder,
       stream,
-      capturedBitmaps = [];
+      capturedScreenBitmaps = [];
 
   /**
    * set media options
@@ -34,7 +34,7 @@ function Proctor (grabScale) {
   /**
    * grab a particulra bitmap from the ongoing stream
    */
-  this.grabImageFromStream = async qid => {
+  this.capture = async qid => {
     //todo remoge
     console.log('grabbing ', qid);
 
@@ -50,7 +50,7 @@ function Proctor (grabScale) {
     const tog = d.toISOString().slice(0, 19).replace('T', ' ');
 
     // save it to a temporary array
-    capturedBitmaps.push({'qid': qid, 'bitmap': bitmap, 'focused': this.focused, 'timeOfGrab': tog});
+    capturedScreenBitmaps.push({'qid': qid, 'bitmap': bitmap, 'focused': this.focused, 'timeOfGrab': tog});
   };
 
   /**
@@ -99,15 +99,17 @@ function Proctor (grabScale) {
     // save proctor log
     this.postLog();
     // save proctor result
-    //show result
-    capturedBitmaps.map(({qid, bitmap, focused, timeOfGrab}) => this.createResult(qid, bitmap, focused, timeOfGrab));
+    
+    // loop over the bitmaps, 
+    // and then post it to the server
+    capturedScreenBitmaps.map(({qid, bitmap, focused, timeOfGrab}) => this.prepareResult(qid, bitmap, focused, timeOfGrab));
   };
 
   /**
    * prepare the result to send to server
    * mainly create image files from bitmap data
    */
-  this.createResult = (qid, bitmap, focused, timeOfGrab) => {
+  this.prepareResult = (qid, bitmap, focused, timeOfGrab) => {
     const canvas = document.createElement('canvas');
     
     //set dimension
@@ -129,7 +131,22 @@ function Proctor (grabScale) {
    * upload captured bitpmaps to server
    */
   this.postLog = () => {
-    console.table(focusLog);
+    let xhr = new XMLHttpRequest();
+
+    // send ajax to backend
+    xhr.open('POST', 'http://localhost:3210/api/v1/uploadlog', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.send(JSON.stringify({focuslog: focusLog}));
+    xhr.onload = () => {
+      // handle error
+      if (xhr.status != 200) {
+        alert('Upload failed');
+        return;
+      };
+
+      // todo
+      // get the response from xhr.response
+    };
   }
 
   /**

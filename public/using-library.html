@@ -57,16 +57,16 @@
     const proctor = new Proctor();
 
     /** 
-     * grab image 
+     * grab screen image 
      */
     const grabImage = questionId => {
-      proctor.grabImageFromStream(questionId);
+      proctor.capture(questionId);
     };
 
     /**
      * start button action
      */
-    const startBtn = document.getElementById('start').onclick = e => {
+    document.getElementById('start').onclick = e => {
       e.stopImmediatePropagation();
 
       // check whether getDisplayMedia API is available
@@ -78,7 +78,7 @@
     /**
      * stop button action
      */
-    const stopBtn = document.getElementById('stop').onclick = e => {
+    document.getElementById('stop').onclick = e => {
       e.stopImmediatePropagation();
       proctor.stop();
     }
@@ -87,17 +87,17 @@
      * actions for question buttons
      * this is to simulate when a candidate is starting to answer a question 
      */
-    const q1Btn = document.getElementById('q1').onclick = e => {
+    document.getElementById('q1').onclick = e => {
       e.stopImmediatePropagation();
       grabImage(1);
     }
 
-    const q2Btn = document.getElementById('q2').onclick = e => {
+    document.getElementById('q2').onclick = e => {
       e.stopImmediatePropagation();
       grabImage(2);
     }
 
-    const q3Btn = document.getElementById('q3').onclick = e => {
+    document.getElementById('q3').onclick = e => {
       e.stopImmediatePropagation();
       grabImage(3);
     }
