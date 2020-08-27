@@ -52,6 +52,17 @@ app.post('/api/v1/uploadlog', (req, res) => {
   .then(() => res.json({message: 'log received'}));
 });
 
+// handle audio sent from frontend
+app.post('/api/v1/uploadaudio', upload.single('audiograb'), (req, res, next) => {
+  if (!req.file) {
+    const error = new Error('Please upload a file');
+    error.httpStatusCode = 400;
+    return next(error);
+  } else {
+    res.json({message: 'file received'});
+  }
+});
+
 // server started info
 app.listen(port, () => {
   console.log(`server running at port ${port}`);

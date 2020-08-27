@@ -9,11 +9,13 @@ function Proctor (grabScale) {
 
   let focusLog = [],
       recorder,
+      micRecorder,
       stream,
+      mic,
       capturedScreenBitmaps = [];
 
   /**
-   * set media options
+   * set display media options
    */
   const gdmOptions = {
     video: {
@@ -23,6 +25,14 @@ function Proctor (grabScale) {
     audio: false,
     logicalSurface: true,
     displaySurface: 'monitor'
+  };
+
+  /**
+   * set user media options
+   */
+  const gumOptions = {
+    video: false, // temp
+    audio: true
   };
 
   /**
@@ -59,6 +69,7 @@ function Proctor (grabScale) {
    * start the process of recording the desktop
    */
   this.start = async () => {
+    // start screen stream
     try {
       stream = await navigator.mediaDevices.getDisplayMedia(gdmOptions);
       recorder = new MediaRecorder(stream);
@@ -84,6 +95,9 @@ function Proctor (grabScale) {
     } catch(err) {
       alert('Please choose a screen and click "Share" to continue.');
     }
+
+    // start audio recording
+    mic = navigator.mediaDevices.getUserMedia(gumOptions).then(micHandler);
   }
 
   /**
@@ -182,6 +196,9 @@ function Proctor (grabScale) {
     recorder.stop();
     // stop the stream, prevent mem leak
     stream.getVideoTracks()[0].stop();
+
+    // stop mic user media stream
+    micRecorder.stop();
   }
 
   // check window gain focus event
@@ -207,6 +224,45 @@ function Proctor (grabScale) {
       focusLog.push({inFocus: false, ts: t});
     }
   };
+
+  /**
+   * handle the microphone initialization
+   * @param {} stream 
+   */
+  const micHandler = stream => {
+    const options = {mimeType: 'audio/webm'};
+    const recordedChunks = [];
+    micRecorder = new MediaRecorder(stream, options);
+
+    micRecorder.ondataavailable = e => recordedChunks.push(e.data);
+    micRecorder.onstop = () => {
+      const soundData = new Blob(recordedChunks);
+      // console.log(soundData);
+      // test temporary
+      const audioUrl = URL.createObjectURL(soundData);
+      const audio = new Audio(audioUrl);
+      audio.play();
+
+      let xhr = new XMLHttpRequest(), fd = new FormData();
+      // create form data
+      fd.append('audiograb', soundData);
+
+      // send ajax to backend
+      xhr.open('POST', 'http://localhost:3210/api/v1/uploadaudio', true);
+      xhr.send(fd);
+      xhr.onload = () => {
+        // handle error
+        if (xhr.status != 200) return;
+
+        // todo
+        // get the response from xhr.response
+      };
+      
+      console.log('sound is ready');
+    };
+
+    micRecorder.start();
+  }
 
   // end of function
 };
