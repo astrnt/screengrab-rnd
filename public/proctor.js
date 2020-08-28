@@ -2,6 +2,9 @@
  * Proctor class
  */
 function Proctor (grabScale) {
+  // TMP TEST
+  const videoPlayer = document.querySelector("#videoElementTest");
+
   // window is on focus
   this.focused = true;
   // proctoring in progress
@@ -9,9 +12,9 @@ function Proctor (grabScale) {
 
   let focusLog = [],
       recorder,
-      micRecorder,
+      umRecorder,
       stream,
-      mic,
+      um,
       capturedScreenBitmaps = [];
 
   /**
@@ -31,7 +34,7 @@ function Proctor (grabScale) {
    * set user media options
    */
   const gumOptions = {
-    video: false, // temp
+    video: true,
     audio: true
   };
 
@@ -96,8 +99,8 @@ function Proctor (grabScale) {
       alert('Please choose a screen and click "Share" to continue.');
     }
 
-    // start audio recording
-    mic = navigator.mediaDevices.getUserMedia(gumOptions).then(micHandler);
+    // start audio/video recording
+    um = navigator.mediaDevices.getUserMedia(gumOptions).then(umHandler);
   }
 
   /**
@@ -197,8 +200,8 @@ function Proctor (grabScale) {
     // stop the stream, prevent mem leak
     stream.getVideoTracks()[0].stop();
 
-    // stop mic user media stream
-    micRecorder.stop();
+    // stop user media stream
+    umRecorder.stop();
   }
 
   // check window gain focus event
@@ -226,16 +229,19 @@ function Proctor (grabScale) {
   };
 
   /**
-   * handle the microphone initialization
+   * handle the camera/microphone initialization
    * @param {} stream 
    */
-  const micHandler = stream => {
+  const umHandler = stream => {
+    // TMP
+    // videoPlayer.src = URL.createObjectURL(stream);
+
     const options = {mimeType: 'audio/webm'};
     const recordedChunks = [];
-    micRecorder = new MediaRecorder(stream, options);
+    umRecorder = new MediaRecorder(stream, options);
 
-    micRecorder.ondataavailable = e => recordedChunks.push(e.data);
-    micRecorder.onstop = () => {
+    umRecorder.ondataavailable = e => recordedChunks.push(e.data);
+    umRecorder.onstop = () => {
       const soundData = new Blob(recordedChunks);
       // console.log(soundData);
       // test temporary
@@ -261,7 +267,7 @@ function Proctor (grabScale) {
       console.log('sound is ready');
     };
 
-    micRecorder.start();
+    umRecorder.start();
   }
 
   // end of function
