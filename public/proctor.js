@@ -46,6 +46,9 @@ function Proctor (grabScale) {
 
   /**
    * grab a particular bitmap from the ongoing stream
+   * @param {string} qid
+   * @param {boolean} random
+   * @param {integer} maxLimit
    */
   this.capture = async (qid, random = true, maxLimit = 5000) => {
     // get track
@@ -127,6 +130,10 @@ function Proctor (grabScale) {
   /**
    * prepare the result to send to server
    * mainly create image files from bitmap data
+   * @param {string} qid
+   * @param {bitmap} bitmap
+   * @param {boolean} focused
+   * @param {string} timeOfGrab
    */
   this.prepareResult = (qid, bitmap, focused, timeOfGrab) => {
     const canvas = document.createElement('canvas');
@@ -170,6 +177,10 @@ function Proctor (grabScale) {
 
   /**
    * upload captured bitpmaps to server
+   * @param {string} qid
+   * @param {boolean} focused
+   * @param {string} timeOfGrab
+   * @param {blob} blob
    */
   this.postBitmapResult = (qid, focused, timeOfGrab) => blob => {
     let xhr = new XMLHttpRequest(), fd = new FormData();

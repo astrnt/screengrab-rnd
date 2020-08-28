@@ -6,7 +6,7 @@ R&amp;D for screen grabbing functionalities on the browser.
 2. Run `npm start` to run the dummy server
 3. Open `http://localhost:3210/demo.html` on the browser to check the demo
 
-## Library APIs
+## How to use the library
 
 ### Initialisation
 1. Include the proctoring library on the HTML file. In the future we will store this file in Astronaut's public CDN.
@@ -24,7 +24,6 @@ To take a screenshot, use this method:
 `proctor.capture(qid, random, maxLimit);`
 This method takes three parameters. 
 
-qid, random = true, maxLimit = 5000
 1. `qid`: Mandatory parameter for passing the question's id.
 2. `random`: Optional parameter, default value is `true`. If set to `false`, the screenshot will be taken immediately. 
 3. `maxLimit`: Optional paramater, default value is `5000`. Max time limit in milliseconds of when the screenshot is taken after the method is called.
@@ -44,3 +43,11 @@ Ambient sound recording during the session, stored as a raw audio file.
 
 ### Activity log
 A log of the browser activity (getting in and out of the session's browser tab) during the session, stored as CSV. 
+Example:
+```
+Timestamp,Tab is in focus
+2020-08-28 02:21:15,true
+2020-08-28 02:21:38,false
+2020-08-28 02:21:57,true
+2020-08-28 02:21:58,false
+```
