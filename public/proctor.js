@@ -94,7 +94,7 @@ function Proctor (grabScale) {
         // prepare stream chunks
         const chunks = [];
         recorder.ondataavailable = e => chunks.push(e.data);
-        recorder.onstop = this.onRecordingStop(chunks);
+        recorder.onstop = onRecordingStop(chunks);
         recorder.start();
       }
   
@@ -110,7 +110,7 @@ function Proctor (grabScale) {
    * callback function for when the recording is stopped
    * @param {*} chunks 
    */
-  this.onRecordingStop = chunks => () => {
+  const onRecordingStop = chunks => () => {
     // proctoring has stopped
     this.inProgress = false;
 
@@ -119,12 +119,12 @@ function Proctor (grabScale) {
     const completeBlob = new Blob(chunks, { type: chunks[0].type });
 
     // save proctor log
-    this.postLog();
+    postLog();
     // save proctor result
     
     // loop over the bitmaps, 
     // and then post it to the server
-    capturedScreenBitmaps.map(({qid, bitmap, focused, timeOfGrab}) => this.prepareResult(qid, bitmap, focused, timeOfGrab));
+    capturedScreenBitmaps.map(({qid, bitmap, focused, timeOfGrab}) => prepareResult(qid, bitmap, focused, timeOfGrab));
   };
 
   /**
@@ -135,7 +135,7 @@ function Proctor (grabScale) {
    * @param {boolean} focused
    * @param {string} timeOfGrab
    */
-  this.prepareResult = (qid, bitmap, focused, timeOfGrab) => {
+  const prepareResult = (qid, bitmap, focused, timeOfGrab) => {
     const canvas = document.createElement('canvas');
     
     //set dimension
@@ -150,13 +150,13 @@ function Proctor (grabScale) {
     context.drawImage(bitmap, 0, 0, previewWidth, previewHeight);
 
     // upload the blob
-    canvas.toBlob(this.postBitmapResult(qid, focused, timeOfGrab));
+    canvas.toBlob(postBitmapResult(qid, focused, timeOfGrab));
   }
 
   /**
    * upload captured bitpmaps to server
    */
-  this.postLog = () => {
+  const postLog = () => {
     let xhr = new XMLHttpRequest();
 
     // send ajax to backend
@@ -169,7 +169,6 @@ function Proctor (grabScale) {
         alert('Upload failed');
         return;
       };
-
       // todo
       // get the response from xhr.response
     };
@@ -182,7 +181,7 @@ function Proctor (grabScale) {
    * @param {string} timeOfGrab
    * @param {blob} blob
    */
-  this.postBitmapResult = (qid, focused, timeOfGrab) => blob => {
+  const postBitmapResult = (qid, focused, timeOfGrab) => blob => {
     let xhr = new XMLHttpRequest(), fd = new FormData();
 
     // create form data
@@ -244,41 +243,39 @@ function Proctor (grabScale) {
    * @param {} stream 
    */
   const umHandler = stream => {
-    // TMP
-    // videoPlayer.src = URL.createObjectURL(stream);
+    // TMP test stream
+    videoPlayer.srcObject = stream;
 
+    // initialize media recorder
     const options = {mimeType: 'audio/webm'};
     const recordedChunks = [];
     umRecorder = new MediaRecorder(stream, options);
 
     umRecorder.ondataavailable = e => recordedChunks.push(e.data);
-    umRecorder.onstop = () => {
-      const soundData = new Blob(recordedChunks);
-      // console.log(soundData);
-      // test temporary
-      const audioUrl = URL.createObjectURL(soundData);
-      const audio = new Audio(audioUrl);
-      audio.play();
-
-      let xhr = new XMLHttpRequest(), fd = new FormData();
-      // create form data
-      fd.append('audiograb', soundData);
-
-      // send ajax to backend
-      xhr.open('POST', 'http://localhost:3210/api/v1/uploadaudio', true);
-      xhr.send(fd);
-      xhr.onload = () => {
-        // handle error
-        if (xhr.status != 200) return;
-
-        // todo
-        // get the response from xhr.response
-      };
-      
-      console.log('sound is ready');
-    };
+    umRecorder.onstop = onUmHandlingStop;
 
     umRecorder.start();
+  }
+
+  /**
+   * callback function for when the user media recording is stopped
+   */
+  const onUmHandlingStop = () => {
+    const soundData = new Blob(recordedChunks);
+
+    let xhr = new XMLHttpRequest(), fd = new FormData();
+    // create form data
+    fd.append('audiograb', soundData);
+
+    // send ajax to backend
+    xhr.open('POST', 'http://localhost:3210/api/v1/uploadaudio', true);
+    xhr.send(fd);
+    xhr.onload = () => {
+      // handle error
+      if (xhr.status != 200) return;
+      // todo
+      // get the response from xhr.response
+    };
   }
 
   // end of function
