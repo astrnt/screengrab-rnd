@@ -6,9 +6,9 @@ function Proctor (grabScale) {
   // const videoPlayer = document.querySelector("#videoElementTest");
 
   // window is on focus
-  this.focused = true;
+  let focused = true;
   // proctoring in progress
-  this.inProgress = false;
+  let inProgress = false;
 
   let focusLog = [],
       recorder,
@@ -45,6 +45,63 @@ function Proctor (grabScale) {
    */
   this.grabScale = grabScale || 1;
 
+  // -----------------------------------------------------
+  // Starting and stopping proctoring
+
+  /**
+   * start the process of recording the desktop
+   */
+  this.start = async () => {
+    // start screen stream
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia(gdmOptions);
+      recorder = new MediaRecorder(stream);
+  
+      const display = stream.getVideoTracks()[0].getSettings().displaySurface;
+      if (display !== 'monitor') { // ['monitor', 'window', 'browser']
+        // stop the stream, prevent mem leak
+        stream.getVideoTracks()[0].stop();
+        
+        alert('Please choose entire screen (monitor) for sharing to start the session');
+        return;
+      } else {
+        // proctoring now in progress
+        inProgress = true;
+
+        // prepare stream chunks
+        const chunks = [];
+        recorder.ondataavailable = e => chunks.push(e.data);
+        recorder.onstop = onScreenRecordingStop(chunks);
+        recorder.start();
+      }
+  
+    } catch(err) {
+      alert('Please choose a screen and click "Share" to continue.');
+    }
+
+    // start audio/video recording
+    try {
+      navigator.mediaDevices.getUserMedia(gumOptions).then(umHandler);
+    } catch(err) {
+      alert('Your media device cannot be accessed.');
+    }
+  }
+
+  /**
+   * stop the process of recording the desktop
+   */
+  this.stop = () => {
+    recorder.stop();
+    // stop the stream, prevent mem leak
+    stream.getVideoTracks()[0].stop();
+
+    // stop user media stream
+    umRecorder.stop();
+  }
+
+  // -----------------------------------------------------
+  // Screen grabbing methods
+
   /**
    * grab a particular bitmap from the ongoing stream
    * @param {string} qid
@@ -69,50 +126,11 @@ function Proctor (grabScale) {
     console.log(qid, 'grabbed');
 
     // save it to a temporary array
-    capturedScreenBitmaps.push({'qid': qid, 'bitmap': bitmap, 'focused': this.focused, 'timeOfGrab': tog});
+    capturedScreenBitmaps.push({'qid': qid, 'bitmap': bitmap, 'focused': focused, 'timeOfGrab': tog});
 
     // snap image right after take screen capture;
     this.snap(qid);
   };
-
-  /**
-   * start the process of recording the desktop
-   */
-  this.start = async () => {
-    // start screen stream
-    try {
-      stream = await navigator.mediaDevices.getDisplayMedia(gdmOptions);
-      recorder = new MediaRecorder(stream);
-  
-      const display = stream.getVideoTracks()[0].getSettings().displaySurface;
-      if (display !== 'monitor') { // ['monitor', 'window', 'browser']
-        // stop the stream, prevent mem leak
-        stream.getVideoTracks()[0].stop();
-        
-        alert('Please choose entire screen (monitor) for sharing to start the session');
-        return;
-      } else {
-        // proctoring now in progress
-        this.inProgress = true;
-
-        // prepare stream chunks
-        const chunks = [];
-        recorder.ondataavailable = e => chunks.push(e.data);
-        recorder.onstop = onScreenRecordingStop(chunks);
-        recorder.start();
-      }
-  
-    } catch(err) {
-      alert('Please choose a screen and click "Share" to continue.');
-    }
-
-    // start audio/video recording
-    try {
-      navigator.mediaDevices.getUserMedia(gumOptions).then(umHandler);
-    } catch(err) {
-      alert('Your media device cannot be accessed.');
-    }
-  }
 
   /**
    * callback function for when the recording is stopped
@@ -120,7 +138,7 @@ function Proctor (grabScale) {
    */
   const onScreenRecordingStop = chunks => async () => {
     // proctoring has stopped
-    this.inProgress = false;
+    inProgress = false;
 
     // 1. save proctor log
     postLog();
@@ -135,6 +153,9 @@ function Proctor (grabScale) {
     // send the blob to server
     capturedScreenBlobs.forEach(({qid, blob, focused, timeOfGrab}) => sendBlobToServer(qid, blob, focused, timeOfGrab));
   };
+
+  // -----------------------------------------------------
+  // Post log
 
   /**
    * upload captured bitpmaps to server
@@ -157,41 +178,8 @@ function Proctor (grabScale) {
     };
   }
 
-  /**
-   * stop the process of recording the desktop
-   */
-  this.stop = () => {
-    recorder.stop();
-    // stop the stream, prevent mem leak
-    stream.getVideoTracks()[0].stop();
-
-    // stop user media stream
-    umRecorder.stop();
-  }
-
-  // check window gain focus event
-  window.onfocus = () => {
-    if (this.inProgress) {
-      this.focused = true;
-      
-      const d = new Date();
-      const t = d.toISOString().slice(0, 19).replace('T', ' ');
-      
-      focusLog.push({inFocus: true, ts: t});
-    }
-  };
-
-  // check window lost focus event
-  window.onblur = () => {
-    if (this.inProgress) {
-      this.focused = false;
-      
-      const d = new Date();
-      const t = d.toISOString().slice(0, 19).replace('T', ' '); 
-      
-      focusLog.push({inFocus: false, ts: t});
-    }
-  };
+  // -----------------------------------------------------
+  // User media methods
 
   /**
    * handle the camera/microphone initialization
@@ -243,21 +231,7 @@ function Proctor (grabScale) {
    */
   const onUmHandlingStop = umChunks => async () => {
     // 1. send av chunk
-    const avData = new Blob(umChunks);
-
-    let xhr = new XMLHttpRequest(), fd = new FormData();
-    // create form data
-    fd.append('audiograb', avData);
-
-    // send ajax to backend
-    xhr.open('POST', 'http://localhost:3210/api/v1/uploadav', true);
-    xhr.send(fd);
-    xhr.onload = () => {
-      // handle error
-      if (xhr.status != 200) return;
-      // todo
-      // get the response from xhr.response
-    };
+    sendAVStream(umChunks);
 
     // 2. send av camera captures
     // convert the bitmap to blob
@@ -269,6 +243,10 @@ function Proctor (grabScale) {
     // send the blob to server
     capturedCamBlobs.forEach(({qid, blob, focused, timeOfGrab}) => sendBlobToServer(qid, blob, focused, timeOfGrab));
   }
+
+  // -----------------------------------------------------
+  // Bitmap to blob processing
+  // and delivery to server 
 
   /**
    * send blob to server
@@ -319,5 +297,53 @@ function Proctor (grabScale) {
     return await new Promise(resolve => canvas.toBlob(resolve));
   };
 
-  // end of function
+  /** 
+   * send AV recording data
+   */
+  const sendAVStream = chunk => {
+    const avData = new Blob(chunk);
+
+    let xhr = new XMLHttpRequest(), fd = new FormData();
+    // create form data
+    fd.append('audiograb', avData);
+
+    // send ajax to backend
+    xhr.open('POST', 'http://localhost:3210/api/v1/uploadav', true);
+    xhr.send(fd);
+    xhr.onload = () => {
+      // handle error
+      if (xhr.status != 200) return;
+      // todo
+      // get the response from xhr.response
+    };
+  }
+
+  // -----------------------------------------------------
+  // Checking window focus/blur
+
+  // check window gain focus event
+  window.onfocus = () => {
+    if (inProgress) {
+      focused = true;
+      
+      const d = new Date();
+      const t = d.toISOString().slice(0, 19).replace('T', ' ');
+      
+      focusLog.push({inFocus: true, ts: t});
+    }
+  };
+
+  // check window lost focus event
+  window.onblur = () => {
+    if (inProgress) {
+      focused = false;
+      
+      const d = new Date();
+      const t = d.toISOString().slice(0, 19).replace('T', ' '); 
+      
+      focusLog.push({inFocus: false, ts: t});
+    }
+  };
+
+  // end of functions ------------------------------------
 };
