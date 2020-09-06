@@ -11,7 +11,7 @@ var storage = multer.diskStorage({
     cb(null, 'uploads/');
   },
   filename: (req, file, cb) => {
-    const extName = file.mimetype === 'application/octet-stream' ? '.audio' : '.png';
+    const extName = file.mimetype === 'application/octet-stream' ? '.stream' : '.png';
     cb(null, `${file.fieldname}-${Date.now()}${extName}`);
   }
 });
@@ -62,7 +62,7 @@ app.post('/api/v1/uploadlog', (req, res) => {
 });
 
 // handle audio sent from frontend
-app.post('/api/v1/uploadaudio', upload.single('audiograb'), (req, res, next) => {
+app.post('/api/v1/uploadav', upload.single('audiograb'), (req, res, next) => {
   if (!req.file) {
     const error = new Error('Please upload a file');
     error.httpStatusCode = 400;

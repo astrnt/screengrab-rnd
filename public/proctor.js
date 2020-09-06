@@ -3,7 +3,7 @@
  */
 function Proctor (grabScale) {
   // TMP TEST
-  const videoPlayer = document.querySelector("#videoElementTest");
+  // const videoPlayer = document.querySelector("#videoElementTest");
 
   // window is on focus
   this.focused = true;
@@ -14,8 +14,9 @@ function Proctor (grabScale) {
       recorder,
       umRecorder,
       stream,
-      um,
-      capturedScreenBitmaps = [];
+      umStream,
+      capturedScreenBitmaps = [],
+      capturedCamBitmaps = [];
 
   /**
    * set display media options
@@ -69,6 +70,9 @@ function Proctor (grabScale) {
 
     // save it to a temporary array
     capturedScreenBitmaps.push({'qid': qid, 'bitmap': bitmap, 'focused': this.focused, 'timeOfGrab': tog});
+
+    // snap image right after take screen capture;
+    this.snap(qid);
   };
 
   /**
@@ -94,7 +98,7 @@ function Proctor (grabScale) {
         // prepare stream chunks
         const chunks = [];
         recorder.ondataavailable = e => chunks.push(e.data);
-        recorder.onstop = onRecordingStop(chunks);
+        recorder.onstop = onScreenRecordingStop(chunks);
         recorder.start();
       }
   
@@ -103,55 +107,34 @@ function Proctor (grabScale) {
     }
 
     // start audio/video recording
-    um = navigator.mediaDevices.getUserMedia(gumOptions).then(umHandler);
+    try {
+      navigator.mediaDevices.getUserMedia(gumOptions).then(umHandler);
+    } catch(err) {
+      alert('Your media device cannot be accessed.');
+    }
   }
 
   /**
    * callback function for when the recording is stopped
    * @param {*} chunks 
    */
-  const onRecordingStop = chunks => () => {
+  const onScreenRecordingStop = chunks => async () => {
     // proctoring has stopped
     this.inProgress = false;
 
-    // get video data
-    // this can also be included in the session data
-    const completeBlob = new Blob(chunks, { type: chunks[0].type });
-
-    // save proctor log
+    // 1. save proctor log
     postLog();
-    // save proctor result
+
+    // 2. send screen grabs
+    // convert the bitmap to blob
+    const capturedScreenBlobs = await Promise.all(capturedScreenBitmaps.map(async ({qid, bitmap, focused, timeOfGrab}) => {
+      const blob = await prepareBitmapToBlob(bitmap);
+      return {'qid': qid, 'blob': blob, 'timeOfGrab': timeOfGrab, 'focused': focused};
+    }));
     
-    // loop over the bitmaps, 
-    // and then post it to the server
-    capturedScreenBitmaps.map(({qid, bitmap, focused, timeOfGrab}) => prepareResult(qid, bitmap, focused, timeOfGrab));
+    // send the blob to server
+    capturedScreenBlobs.forEach(({qid, blob, focused, timeOfGrab}) => sendBlobToServer(qid, blob, focused, timeOfGrab));
   };
-
-  /**
-   * prepare the result to send to server
-   * mainly create image files from bitmap data
-   * @param {string} qid
-   * @param {bitmap} bitmap
-   * @param {boolean} focused
-   * @param {string} timeOfGrab
-   */
-  const prepareResult = (qid, bitmap, focused, timeOfGrab) => {
-    const canvas = document.createElement('canvas');
-    
-    //set dimension
-    const previewWidth = bitmap.width / this.grabScale;
-    const previewHeight = bitmap.height / this.grabScale;
-    canvas.width = previewWidth;
-    canvas.height = previewHeight;
-
-    // draw
-    const context = canvas.getContext('2d');
-    // draw bitmap
-    context.drawImage(bitmap, 0, 0, previewWidth, previewHeight);
-
-    // upload the blob
-    canvas.toBlob(postBitmapResult(qid, focused, timeOfGrab));
-  }
 
   /**
    * upload captured bitpmaps to server
@@ -169,34 +152,6 @@ function Proctor (grabScale) {
         alert('Upload failed');
         return;
       };
-      // todo
-      // get the response from xhr.response
-    };
-  }
-
-  /**
-   * upload captured bitpmaps to server
-   * @param {string} qid
-   * @param {boolean} focused
-   * @param {string} timeOfGrab
-   * @param {blob} blob
-   */
-  const postBitmapResult = (qid, focused, timeOfGrab) => blob => {
-    let xhr = new XMLHttpRequest(), fd = new FormData();
-
-    // create form data
-    fd.append('questionId', qid);
-    fd.append('screengrab', blob);
-    fd.append('isFocused', focused);
-    fd.append('screengrabstamp', timeOfGrab);
-
-    // send ajax to backend
-    xhr.open('POST', 'http://localhost:3210/api/v1/upload', true);
-    xhr.send(fd);
-    xhr.onload = () => {
-      // handle error
-      if (xhr.status != 200) return;
-
       // todo
       // get the response from xhr.response
     };
@@ -243,32 +198,59 @@ function Proctor (grabScale) {
    * @param {} stream 
    */
   const umHandler = stream => {
-    // TMP test stream
-    videoPlayer.srcObject = stream;
+    umStream = stream;
 
     // initialize media recorder
     const options = {mimeType: 'audio/webm'};
-    const recordedChunks = [];
+    const umChunks = [];
     umRecorder = new MediaRecorder(stream, options);
 
-    umRecorder.ondataavailable = e => recordedChunks.push(e.data);
-    umRecorder.onstop = onUmHandlingStop;
+    umRecorder.ondataavailable = e => umChunks.push(e.data);
+    umRecorder.onstop = onUmHandlingStop(umChunks);
 
     umRecorder.start();
   }
 
   /**
+   * Take a snap out of the video stream
+   * @param {*} qid 
+   */
+  this.snap = async qid => {
+    console.log('snapped', qid);
+    // get track
+    const track = umStream.getVideoTracks() && umStream.getVideoTracks()[0];
+
+    // init Image Capture and not Video stream
+    const imageCapture = new ImageCapture(track);
+
+    // if randomize the screen capture time is true, wait for a number (< maxLimit) of seconds (aka sleep)
+    // if (random) await new Promise(r => setTimeout(r, (Math.random() * maxLimit) ));
+
+    // take the current frame
+    const bitmap = await imageCapture.grabFrame();
+    const d = new Date();
+    const tog = d.toISOString().slice(0, 19).replace('T', ' ');
+
+    // todo remove
+    console.log(qid, 'snapped');
+
+    // // save it to a temporary array
+    capturedCamBitmaps.push({'qid': qid, 'bitmap': bitmap, 'timeOfGrab': tog});
+  }
+
+  /**
    * callback function for when the user media recording is stopped
    */
-  const onUmHandlingStop = () => {
-    const soundData = new Blob(recordedChunks);
+  const onUmHandlingStop = umChunks => async () => {
+    // 1. send av chunk
+    const avData = new Blob(umChunks);
 
     let xhr = new XMLHttpRequest(), fd = new FormData();
     // create form data
-    fd.append('audiograb', soundData);
+    fd.append('audiograb', avData);
 
     // send ajax to backend
-    xhr.open('POST', 'http://localhost:3210/api/v1/uploadaudio', true);
+    xhr.open('POST', 'http://localhost:3210/api/v1/uploadav', true);
     xhr.send(fd);
     xhr.onload = () => {
       // handle error
@@ -276,7 +258,66 @@ function Proctor (grabScale) {
       // todo
       // get the response from xhr.response
     };
+
+    // 2. send av camera captures
+    // convert the bitmap to blob
+    const capturedCamBlobs = await Promise.all(capturedCamBitmaps.map(async ({qid, bitmap, timeOfGrab}) => {
+      const blob = await prepareBitmapToBlob(bitmap);
+      return {'qid': qid, 'blob': blob, 'timeOfGrab': timeOfGrab, 'focused': null};
+    }));
+    
+    // send the blob to server
+    capturedCamBlobs.forEach(({qid, blob, focused, timeOfGrab}) => sendBlobToServer(qid, blob, focused, timeOfGrab));
   }
+
+  /**
+   * send blob to server
+   * @param {string} qid
+   * @param {boolean} focused
+   * @param {string} timeOfGrab
+   * @param {blob} blob
+   */
+  const sendBlobToServer = (qid, blob, focused, timeOfGrab) => {
+    let xhr = new XMLHttpRequest(), fd = new FormData();
+
+    // create form data
+    fd.append('questionId', qid);
+    fd.append('screengrab', blob);
+    fd.append('isFocused', focused);
+    fd.append('screengrabstamp', timeOfGrab);
+
+    // send ajax to backend
+    xhr.open('POST', 'http://localhost:3210/api/v1/upload', true);
+    xhr.send(fd);
+    xhr.onload = () => {
+      // handle error
+      if (xhr.status != 200) return;
+
+      // todo
+      // get the response from xhr.response
+    };
+  }
+
+  /** 
+   * create images from bitmap data for sending to server
+   */
+  const prepareBitmapToBlob = async bitmap => {
+    const canvas = document.createElement('canvas');
+    const previewWidth = bitmap.width / this.grabScale;
+    const previewHeight = bitmap.height / this.grabScale;
+    
+    //set dimension
+    canvas.width = previewWidth;
+    canvas.height = previewHeight;
+
+    // draw
+    await canvas
+    .getContext('2d')
+    .drawImage(bitmap, 0, 0, previewWidth, previewHeight);
+
+    // return the blob
+    return await new Promise(resolve => canvas.toBlob(resolve));
+  };
 
   // end of function
 };
