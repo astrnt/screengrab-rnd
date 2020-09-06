@@ -1,7 +1,10 @@
 /**
  * Proctor class
+ * @param {integer} grabScale 
+ * set the bitmap scale down value
+ * eg. if the screenshot is 1000 by 800 pixels, the saved bitmap will be resized to 1000/grabScale by 800/grabScale pixels
  */
-function Proctor (grabScale) {
+function Proctor (grabScale = 1) {
   // TMP TEST
   // const videoPlayer = document.querySelector("#videoElementTest");
 
@@ -11,9 +14,9 @@ function Proctor (grabScale) {
   let inProgress = false;
 
   let focusLog = [],
-      recorder,
+      scRecorder,
       umRecorder,
-      stream,
+      scStream,
       umStream,
       capturedScreenBitmaps = [],
       capturedCamBitmaps = [];
@@ -39,12 +42,6 @@ function Proctor (grabScale) {
     audio: true
   };
 
-  /**
-   * set the bitmap scale down value
-   * eg. if the screenshot is 1000 by 800 pixels, the saved bitmap will be resized to 1000/this.grabScale by 800/this.grabScale pixels
-   */
-  this.grabScale = grabScale || 1;
-
   // -----------------------------------------------------
   // Starting and stopping proctoring
 
@@ -54,13 +51,13 @@ function Proctor (grabScale) {
   this.start = async () => {
     // start screen stream
     try {
-      stream = await navigator.mediaDevices.getDisplayMedia(gdmOptions);
-      recorder = new MediaRecorder(stream);
+      scStream = await navigator.mediaDevices.getDisplayMedia(gdmOptions);
+      scRecorder = new MediaRecorder(scStream);
   
-      const display = stream.getVideoTracks()[0].getSettings().displaySurface;
+      const display = scStream.getVideoTracks()[0].getSettings().displaySurface;
       if (display !== 'monitor') { // ['monitor', 'window', 'browser']
         // stop the stream, prevent mem leak
-        stream.getVideoTracks()[0].stop();
+        scStream.getVideoTracks()[0].stop();
         
         alert('Please choose entire screen (monitor) for sharing to start the session');
         return;
@@ -70,9 +67,9 @@ function Proctor (grabScale) {
 
         // prepare stream chunks
         const chunks = [];
-        recorder.ondataavailable = e => chunks.push(e.data);
-        recorder.onstop = onScreenRecordingStop(chunks);
-        recorder.start();
+        scRecorder.ondataavailable = e => chunks.push(e.data);
+        scRecorder.onstop = onScreenRecordingStop(chunks);
+        scRecorder.start();
       }
   
     } catch(err) {
@@ -91,12 +88,14 @@ function Proctor (grabScale) {
    * stop the process of recording the desktop
    */
   this.stop = () => {
-    recorder.stop();
+    scRecorder.stop();
     // stop the stream, prevent mem leak
-    stream.getVideoTracks()[0].stop();
+    scStream.getVideoTracks()[0].stop();
 
     // stop user media stream
     umRecorder.stop();
+    // stop the stream, prevent mem leak
+    umStream.getVideoTracks()[0].stop();
   }
 
   // -----------------------------------------------------
@@ -110,7 +109,7 @@ function Proctor (grabScale) {
    */
   this.capture = async (qid, random = true, maxLimit = 5000) => {
     // get track
-    const track = stream.getVideoTracks() && stream.getVideoTracks()[0];
+    const track = scStream.getVideoTracks() && scStream.getVideoTracks()[0];
 
     // init Image Capture and not Video stream
     const imageCapture = new ImageCapture(track);
@@ -141,7 +140,7 @@ function Proctor (grabScale) {
     inProgress = false;
 
     // 1. save proctor log
-    postLog();
+    postLog(this.prepareLog(focusLog));
 
     // 2. send screen grabs
     // convert the bitmap to blob
@@ -158,15 +157,22 @@ function Proctor (grabScale) {
   // Post log
 
   /**
-   * upload captured bitpmaps to server
+   * prepare log
    */
-  const postLog = () => {
+  this.prepareLog = flog => {
+    return JSON.stringify({focuslog: flog});
+  }
+
+  /**
+   * upload log
+   */
+  const postLog = logData => {
     let xhr = new XMLHttpRequest();
 
     // send ajax to backend
     xhr.open('POST', 'http://localhost:3210/api/v1/uploadlog', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.send(JSON.stringify({focuslog: focusLog}));
+    xhr.send(logData);
     xhr.onload = () => {
       // handle error
       if (xhr.status != 200) {
@@ -281,8 +287,8 @@ function Proctor (grabScale) {
    */
   const prepareBitmapToBlob = async bitmap => {
     const canvas = document.createElement('canvas');
-    const previewWidth = bitmap.width / this.grabScale;
-    const previewHeight = bitmap.height / this.grabScale;
+    const previewWidth = bitmap.width / grabScale;
+    const previewHeight = bitmap.height / grabScale;
     
     //set dimension
     canvas.width = previewWidth;
@@ -323,27 +329,23 @@ function Proctor (grabScale) {
 
   // check window gain focus event
   window.onfocus = () => {
-    if (inProgress) {
-      focused = true;
-      
-      const d = new Date();
-      const t = d.toISOString().slice(0, 19).replace('T', ' ');
-      
-      focusLog.push({inFocus: true, ts: t});
-    }
+    if (inProgress) this.logFocus(true);
   };
 
   // check window lost focus event
   window.onblur = () => {
-    if (inProgress) {
-      focused = false;
-      
-      const d = new Date();
-      const t = d.toISOString().slice(0, 19).replace('T', ' '); 
-      
-      focusLog.push({inFocus: false, ts: t});
-    }
+    if (inProgress) this.logFocus(false);
   };
+
+  // store lost focus log
+  this.logFocus = status => {
+    focused = status;
+    
+    const d = new Date();
+    const t = d.toISOString().slice(0, 19).replace('T', ' '); 
+    
+    focusLog.push({inFocus: status, ts: t});
+  }
 
   // end of functions ------------------------------------
 };
