@@ -210,7 +210,6 @@ function Proctor (grabScale = 1) {
    * @param {*} qid 
    */
   this.snap = async qid => {
-    console.log('snapped', qid);
     // get track
     const track = umStream.getVideoTracks() && umStream.getVideoTracks()[0];
 
@@ -346,6 +345,9 @@ function Proctor (grabScale = 1) {
     
     focusLog.push({inFocus: status, ts: t});
   }
+
+  // get focus log value
+  this.getFocusLog = () => (focusLog);
 
   // end of functions ------------------------------------
 };

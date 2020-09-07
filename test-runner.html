@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Proctoring frontend library test suite</title>
+    <link rel="stylesheet" href="node_modules/mocha/mocha.css">
+  </head>
+  <body>
+    <div id="mocha"></div>
+    <script src="node_modules/mocha/mocha.js"></script>
+    <script src="node_modules/chai/chai.js"></script>
+
+    <script>mocha.setup('bdd')</script>
+
+    <script src="public/proctor.js"></script>
+    <script>
+      /**
+       * Testing suite for the frontend library
+       * */
+      
+      const proctor = new Proctor();
+      const {strictEqual, equal} = chai.assert;
+
+      describe('Tests for logging', () => {
+        it('should add a correct status to the log', () => {
+          // adding status
+          proctor.logFocus(true);
+          // adding status
+          proctor.logFocus(false);
+          // adding status
+          proctor.logFocus(true);
+
+          const currentLog = proctor.getFocusLog();
+
+          // log should have 3 objects
+          strictEqual(currentLog.length, 3);
+          // the second object in the log should have an inFocus value of false
+          strictEqual(currentLog[1].inFocus, false);
+        });
+      });
+
+      describe('Tests for log formatting', () => {
+        it('should return a properly formatted log', () => {
+          const log = [
+            {inFocus: true, ts: '2020-09-07 09:00:00'},
+            {inFocus: true, ts: '2020-09-07 09:05:00'},
+            {inFocus: false, ts: '2020-09-07 09:10:00'}
+          ];
+
+          const expected = '{"focuslog":[{"inFocus":true,"ts":"2020-09-07 09:00:00"},{"inFocus":true,"ts":"2020-09-07 09:05:00"},{"inFocus":false,"ts":"2020-09-07 09:10:00"}]}';
+          const result = proctor.prepareLog(log);
+
+          // result should be the same as expected value
+          equal(result, expected);
+          // result should have a type of string
+          equal(typeof result, 'string');
+        });
+      });
+    </script>
+
+    <script>
+      mocha.run();
+    </script>
+  </body>
+</html>
